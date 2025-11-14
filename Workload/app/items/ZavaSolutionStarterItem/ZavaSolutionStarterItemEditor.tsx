@@ -43,6 +43,8 @@ import {
   DataAccessRequest,
   DataAccessRequestStatus,
 } from "./ZavaSolutionStarterItemModel";
+import { PackageInstallerContext } from "../PackageInstallerItem/package/PackageInstallerContext";
+import { Package } from "../PackageInstallerItem/PackageInstallerItemModel";
 import "./../../styles.scss";
 
 export function ZavaSolutionStarterItemEditor(props: PageProps) {
@@ -58,20 +60,96 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
   >(undefined);
   const [userName, setUserName] = useState<string>("");
   const [isDataAccessDialogOpen, setIsDataAccessDialogOpen] = useState(false);
+  const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
+  const [packageContext] = useState(() => new PackageInstallerContext(workloadClient));
+  const [packagesLoaded, setPackagesLoaded] = useState(false);
   const [dataAccessRequest, setDataAccessRequest] = useState({
     dataSourceName: "",
     justification: "",
   });
 
-  // Load user info - for demo purposes, using a default name
-  // In production, you would extract this from authentication context
+  // Load user info from token and initialize packages
   useEffect(() => {
-    setUserName("User");
-  }, []);
+    const loadUserInfo = async () => {
+      try {
+        const accessToken = await workloadClient.auth.acquireFrontendAccessToken({ 
+          scopes: ["https://analysis.windows.net/powerbi/api/.default"] 
+        });
+        
+        if (accessToken?.token) {
+          try {
+            // Decode JWT token to extract user information
+            const parts = accessToken.token.split('.');
+            if (parts.length === 3) {
+              const base64Url = parts[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(
+                atob(base64)
+                  .split('')
+                  .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join('')
+              );
+              
+              const tokenPayload = JSON.parse(jsonPayload);
+              console.log('Token payload:', tokenPayload);
+              
+              // Extract name from common JWT claims
+              const name = tokenPayload.name || 
+                           tokenPayload.preferred_username?.split('@')[0] || 
+                           tokenPayload.unique_name?.split('@')[0] || 
+                           tokenPayload.upn?.split('@')[0] ||
+                           tokenPayload.email?.split('@')[0] ||
+                           "User";
+              
+              setUserName(name);
+            } else {
+              setUserName("User");
+            }
+          } catch (decodeError) {
+            console.error("Failed to decode token:", decodeError);
+            setUserName("User");
+          }
+        } else {
+          setUserName("User");
+        }
+      } catch (error) {
+        console.error("Failed to load user info:", error);
+        setUserName("User");
+      }
+    };
+    
+    // Initialize package registry
+    const initializePackages = async () => {
+      try {
+        await packageContext.packageRegistry.loadFromAssets();
+        console.log('Loaded packages:', packageContext.packageRegistry.getPackagesArray());
+      } catch (error) {
+        console.error('Failed to load packages:', error);
+      }
+    };
+    
+    loadUserInfo();
+    initializePackages();
+  }, [workloadClient, packageContext]);
 
   useEffect(() => {
     loadDataFromUrl(pageContext, pathname);
   }, [pageContext, pathname]);
+
+  // Load packages from assets
+  useEffect(() => {
+    const loadPackages = async () => {
+      try {
+        await packageContext.packageRegistry.loadFromAssets();
+        setPackagesLoaded(true);
+        console.log('Packages loaded successfully');
+      } catch (error) {
+        console.error('Failed to load packages:', error);
+        setPackagesLoaded(true); // Set to true anyway to avoid infinite loading
+      }
+    };
+    loadPackages();
+  }, [packageContext]);
 
   async function loadDataFromUrl(pageContext: ContextProps, pathname: string) {
     setIsLoadingData(true);
@@ -88,6 +166,17 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
           resources: getDefaultResources(),
           dataAccessRequests: [],
         };
+      } else {
+        // Convert date strings back to Date objects
+        if (item.definition.onboardingData?.onboardedAt && typeof item.definition.onboardingData.onboardedAt === 'string') {
+          item.definition.onboardingData.onboardedAt = new Date(item.definition.onboardingData.onboardedAt);
+        }
+        if (item.definition.dataAccessRequests) {
+          item.definition.dataAccessRequests = item.definition.dataAccessRequests.map(req => ({
+            ...req,
+            requestedAt: typeof req.requestedAt === 'string' ? new Date(req.requestedAt) : req.requestedAt
+          }));
+        }
       }
 
       setEditorItem(item);
@@ -111,28 +200,24 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
         name: "Getting Started Guide",
         description: "Learn the basics of using this solution",
         type: "documentation",
-        icon: "📘",
       },
       {
         id: "resource-2",
         name: "Sample Datasets",
         description: "Access pre-configured sample data for testing",
         type: "dataset",
-        icon: "📊",
       },
       {
         id: "resource-3",
         name: "Templates & Examples",
         description: "Ready-to-use templates for common scenarios",
         type: "template",
-        icon: "📝",
       },
       {
         id: "resource-4",
         name: "Best Practices",
         description: "Industry best practices and guidelines",
         type: "documentation",
-        icon: "⭐",
       },
     ];
   };
@@ -166,7 +251,15 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     if (!item) return;
 
     try {
-      await saveItemDefinition(workloadClient, item.id, item.definition);
+      // Create a serializable copy of the definition by converting Dates to ISO strings
+      const serializableDefinition = JSON.parse(JSON.stringify(item.definition, (key, value) => {
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        return value;
+      }));
+
+      await saveItemDefinition(workloadClient, item.id, serializableDefinition);
       setIsUnsaved(false);
       callNotificationOpen(
         workloadClient,
@@ -262,6 +355,19 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     }
   };
 
+  const handleTemplateSelection = (packageId: string) => {
+    const selectedPackage = packageContext.packageRegistry.getPackage(packageId);
+    if (selectedPackage) {
+      callNotificationOpen(
+        workloadClient,
+        t("ZavaSolutionStarterItem_Template_Selected", "Template Selected"),
+        t("ZavaSolutionStarterItem_Template_Selected_Message", `You selected: ${selectedPackage.displayName}`),
+        NotificationType.Success
+      );
+      setIsTemplatesDialogOpen(false);
+    }
+  };
+
   if (isLoadingData) {
     return <ItemEditorLoadingProgressBar message={t("ZavaSolutionStarterItem_Loading", "Loading...")} />;
   }
@@ -339,16 +445,127 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                   <CardHeader
                     image={
                       <div style={{ fontSize: "32px" }}>
-                        {resource.icon || getResourceIcon(resource.type)}
+                        {getResourceIcon(resource.type)}
                       </div>
                     }
                     header={<Text weight="semibold">{resource.name}</Text>}
                     description={<Text size={300}>{resource.description}</Text>}
                   />
                   <Stack horizontal tokens={{ childrenGap: 8 }}>
-                    <Button appearance="primary" size="small">
-                      {t("ZavaSolutionStarterItem_Resource_Open", "Open")}
-                    </Button>
+                    {resource.type === "template" ? (
+                      <Dialog
+                        open={isTemplatesDialogOpen}
+                        onOpenChange={(e, data) =>
+                          setIsTemplatesDialogOpen(data.open)
+                        }
+                      >
+                        <DialogTrigger disableButtonEnhancement>
+                          <Button appearance="primary" size="small">
+                            {t("ZavaSolutionStarterItem_Resource_Open", "Open")}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogSurface style={{ maxWidth: "900px", width: "90vw" }}>
+                          <DialogBody>
+                            <DialogTitle>
+                              {t(
+                                "ZavaSolutionStarterItem_Templates_Dialog_Title",
+                                "Select a Template"
+                              )}
+                            </DialogTitle>
+                            <DialogContent>
+                              <Stack tokens={{ childrenGap: 16 }}>
+                                <Text>
+                                  {t(
+                                    "ZavaSolutionStarterItem_Templates_Description",
+                                    "Choose from the available templates and examples:"
+                                  )}
+                                </Text>
+                                <div
+                                  style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+                                    gap: "16px",
+                                    maxHeight: "500px",
+                                    overflowY: "auto",
+                                  }}
+                                >
+                                  {!packagesLoaded ? (
+                                    <Text>
+                                      {t(
+                                        "ZavaSolutionStarterItem_Templates_Loading",
+                                        "Loading templates..."
+                                      )}
+                                    </Text>
+                                  ) : packageContext.packageRegistry
+                                      .getPackagesArray().length === 0 ? (
+                                    <Text>
+                                      {t(
+                                        "ZavaSolutionStarterItem_Templates_NoTemplates",
+                                        "No templates available"
+                                      )}
+                                    </Text>
+                                  ) : (
+                                    packageContext.packageRegistry
+                                      .getPackagesArray()
+                                      .map((pack: Package) => (
+                                        <Card
+                                          key={pack.id}
+                                          style={{ cursor: "pointer" }}
+                                          onClick={() => handleTemplateSelection(pack.id)}
+                                        >
+                                          <CardHeader
+                                            image={
+                                              pack.icon ? (
+                                                <img
+                                                  src={pack.icon}
+                                                  alt={pack.displayName}
+                                                  style={{
+                                                    width: "48px",
+                                                    height: "48px",
+                                                    objectFit: "cover",
+                                                  }}
+                                                />
+                                              ) : (
+                                                <div
+                                                  style={{
+                                                    width: "48px",
+                                                    height: "48px",
+                                                    backgroundColor: "#f3f2f1",
+                                                    borderRadius: "4px",
+                                                  }}
+                                                />
+                                              )
+                                            }
+                                            header={
+                                              <Text weight="semibold" size={400}>
+                                                {pack.displayName}
+                                              </Text>
+                                            }
+                                            description={
+                                              <Text size={200}>{pack.description}</Text>
+                                            }
+                                          />
+                                        </Card>
+                                      ))
+                                  )}
+                                </div>
+                              </Stack>
+                            </DialogContent>
+                            <DialogActions>
+                              <DialogTrigger disableButtonEnhancement>
+                                <Button appearance="secondary">
+                                  {t("ZavaSolutionStarterItem_Dialog_Close", "Close")}
+                                </Button>
+                              </DialogTrigger>
+                            </DialogActions>
+                          </DialogBody>
+                        </DialogSurface>
+                      </Dialog>
+                    ) : (
+                      <Button appearance="primary" size="small">
+                        {t("ZavaSolutionStarterItem_Resource_Open", "Open")}
+                      </Button>
+                    )}
                   </Stack>
                 </Card>
               ))}
