@@ -22,7 +22,8 @@
         "customActions": [
         ]},
         "recommendedItemTypes": [
-          "PackageInstaller"
+          "PackageInstaller",
+          "ZavaSolutionStarter"
         ]
     },
     "createExperience": {
@@ -69,6 +70,27 @@
               "onCreationFailure": { "action": "item.onCreationFailure" },
               "onCreationSuccess": { "action": "item.onCreationSuccess" }
             }        
+          },
+          {
+            "title": "ZavaSolutionStarterItem_DisplayName",
+            "description": "ZavaSolutionStarterItem_Description",
+            "icon": {
+              "name": "assets/images/ZavaSolutionStarterItem-icon.png"
+            },
+            "icon_small": {
+              "name": "assets/images/ZavaSolutionStarterItem-icon.png"
+            },
+            "availableIn": [
+              "home",
+              "create-hub",
+              "workspace-plus-new",
+              "workspace-plus-new-teams"
+            ],
+            "itemType": "ZavaSolutionStarter",
+            "createItemDialogConfig": {
+              "onCreationFailure": { "action": "item.onCreationFailure" },
+              "onCreationSuccess": { "action": "item.onCreationSuccess" }
+            }
           }
         ]
     },
