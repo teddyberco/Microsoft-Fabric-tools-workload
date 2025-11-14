@@ -45,6 +45,8 @@ import {
   DataAccessRequest,
   DataAccessRequestStatus,
 } from "./ZavaSolutionStarterItemModel";
+import { PackageInstallerContext } from "../PackageInstallerItem/package/PackageInstallerContext";
+import { Package } from "../PackageInstallerItem/PackageInstallerItemModel";
 import "./../../styles.scss";
 
 export function ZavaSolutionStarterItemEditor(props: PageProps) {
@@ -104,6 +106,21 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     loadDataFromUrl(pageContext, pathname);
   }, [pageContext, pathname]);
 
+  // Load packages from assets
+  useEffect(() => {
+    const loadPackages = async () => {
+      try {
+        await packageContext.packageRegistry.loadFromAssets();
+        setPackagesLoaded(true);
+        console.log('Packages loaded successfully');
+      } catch (error) {
+        console.error('Failed to load packages:', error);
+        setPackagesLoaded(true); // Set to true anyway to avoid infinite loading
+      }
+    };
+    loadPackages();
+  }, [packageContext]);
+
   async function loadDataFromUrl(pageContext: ContextProps, pathname: string) {
     setIsLoadingData(true);
     try {
@@ -119,6 +136,17 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
           resources: getDefaultResources(),
           dataAccessRequests: [],
         };
+      } else {
+        // Convert date strings back to Date objects
+        if (item.definition.onboardingData?.onboardedAt && typeof item.definition.onboardingData.onboardedAt === 'string') {
+          item.definition.onboardingData.onboardedAt = new Date(item.definition.onboardingData.onboardedAt);
+        }
+        if (item.definition.dataAccessRequests) {
+          item.definition.dataAccessRequests = item.definition.dataAccessRequests.map(req => ({
+            ...req,
+            requestedAt: typeof req.requestedAt === 'string' ? new Date(req.requestedAt) : req.requestedAt
+          }));
+        }
       }
 
       setEditorItem(item);
@@ -142,28 +170,24 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
         name: "Getting Started Guide",
         description: "Learn the basics of using this solution",
         type: "documentation",
-        icon: "📘",
       },
       {
         id: "resource-2",
         name: "Sample Datasets",
         description: "Access pre-configured sample data for testing",
         type: "dataset",
-        icon: "📊",
       },
       {
         id: "resource-3",
         name: "Templates & Examples",
         description: "Ready-to-use templates for common scenarios",
         type: "template",
-        icon: "📝",
       },
       {
         id: "resource-4",
         name: "Best Practices",
         description: "Industry best practices and guidelines",
         type: "documentation",
-        icon: "⭐",
       },
     ];
   };
@@ -197,7 +221,15 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     if (!item) return;
 
     try {
-      await saveItemDefinition(workloadClient, item.id, item.definition);
+      // Create a serializable copy of the definition by converting Dates to ISO strings
+      const serializableDefinition = JSON.parse(JSON.stringify(item.definition, (key, value) => {
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        return value;
+      }));
+
+      await saveItemDefinition(workloadClient, item.id, serializableDefinition);
       setIsUnsaved(false);
       callNotificationOpen(
         workloadClient,
@@ -353,6 +385,19 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     }
   };
 
+  const handleTemplateSelection = (packageId: string) => {
+    const selectedPackage = packageContext.packageRegistry.getPackage(packageId);
+    if (selectedPackage) {
+      callNotificationOpen(
+        workloadClient,
+        t("ZavaSolutionStarterItem_Template_Selected", "Template Selected"),
+        t("ZavaSolutionStarterItem_Template_Selected_Message", `You selected: ${selectedPackage.displayName}`),
+        NotificationType.Success
+      );
+      setIsTemplatesDialogOpen(false);
+    }
+  };
+
   if (isLoadingData) {
     return <ItemEditorLoadingProgressBar message={t("ZavaSolutionStarterItem_Loading", "Loading...")} />;
   }
@@ -430,7 +475,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                   <CardHeader
                     image={
                       <div style={{ fontSize: "32px" }}>
-                        {resource.icon || getResourceIcon(resource.type)}
+                        {getResourceIcon(resource.type)}
                       </div>
                     }
                     header={<Text weight="semibold">{resource.name}</Text>}
