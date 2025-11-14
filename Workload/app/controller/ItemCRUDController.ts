@@ -216,10 +216,10 @@ export function convertGetItemResultToWorkloadItem<T>(
     if (itemDefinitionResult?.definition?.parts) {
         try {
             const itemMetadata = itemDefinitionResult.definition.parts.find((part) => part.path === ItemDefinitionPath.Default);
-            payload = itemMetadata ? JSON.parse(atob(itemMetadata?.payload)) : undefined;
+            payload = itemMetadata ? JSON.parse(decodeURIComponent(escape(atob(itemMetadata?.payload)))) : undefined;
 
             const platformDefinition = itemDefinitionResult.definition.parts.find((part) => part.path === ItemDefinitionPath.Platform);
-            const itemPlatformPayload = platformDefinition ? JSON.parse(atob(platformDefinition?.payload)) : undefined;
+            const itemPlatformPayload = platformDefinition ? JSON.parse(decodeURIComponent(escape(atob(platformDefinition?.payload)))) : undefined;
             itemPlatformMetadata = itemPlatformPayload ? itemPlatformPayload.metadata : undefined;
         } catch (payloadParseError) {
             console.error(`Failed parsing payload for item ${itemResult?.item.id}, itemDefinitionResult: ${itemDefinitionResult}`, payloadParseError);
@@ -250,7 +250,7 @@ export function buildPublicAPIPayloadWithParts(
 ): UpdateItemDefinitionPayload {
     const itemDefinitionParts: ItemDefinitionPart[] = parts.map(({ payloadPath, payloadData }) => ({
         path: payloadPath,
-        payload: btoa(JSON.stringify(payloadData)),
+        payload: btoa(unescape(encodeURIComponent(JSON.stringify(payloadData)))),
         payloadType: PayloadType.InlineBase64
     }));
     return {
