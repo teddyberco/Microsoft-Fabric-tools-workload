@@ -91,7 +91,29 @@
             "createItemDialogConfig": {
               "onCreationFailure": { "action": "item.onCreationFailure" },
               "onCreationSuccess": { "action": "item.onCreationSuccess" }
-            }          }
+            }
+          },
+          {
+            "title": "WorkspaceManagerItem_DisplayName",
+            "description": "WorkspaceManagerItem_Description",
+            "icon": {
+              "name": "assets/images/WorkspaceManagerItem-icon.png"
+            },
+            "icon_small": {
+              "name": "assets/images/WorkspaceManagerItem-icon.png"
+            },
+            "availableIn": [
+              "home",
+              "create-hub",
+              "workspace-plus-new",
+              "workspace-plus-new-teams"
+            ],
+            "itemType": "WorkspaceManager",
+            "createItemDialogConfig": {
+              "onCreationFailure": { "action": "item.onCreationFailure" },
+              "onCreationSuccess": { "action": "item.onCreationSuccess" }
+            }
+          }
         ]
     },
     "productDetail": {

@@ -12,5 +12,8 @@
   "PackageInstallerItem_Description": "Un elemento que puede instalar diferentes configuraciones de paquetes en espacios de trabajo de Fabric.",
   "OneLakeExplorerItem_DisplayName": "Explorador de OneLake",
   "OneLakeExplorerItem_DisplayName_Plural": "Exploradores de OneLake",
-  "OneLakeExplorerItem_Description": "Un elemento que proporciona capacidades de exploración y edición de archivos OneLake."
+  "OneLakeExplorerItem_Description": "Un elemento que proporciona capacidades de exploración y edición de archivos OneLake.",
+  "WorkspaceManagerItem_DisplayName": "Administrador de espacio de trabajo",
+  "WorkspaceManagerItem_DisplayName_Plural": "Administradores de espacio de trabajo",
+  "WorkspaceManagerItem_Description": "Administre múltiples elementos en su espacio de trabajo con operaciones de copia, eliminación, reenlace y clonación masivas"
 }

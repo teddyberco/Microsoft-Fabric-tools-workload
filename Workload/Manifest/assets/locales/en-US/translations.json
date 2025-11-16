@@ -15,7 +15,10 @@
     "OneLakeExplorerItem_Description": "An item that provides OneLake file exploration and editing capabilities.",
     "ZavaTemplateItem_DisplayName": "Zava's Data & BI template",
     "ZavaTemplateItem_DisplayName_Plural": "Zava's Data & BI templates",
-    "ZavaTemplateItem_Description": "A Center of Excellence item that provides onboarding and solution resource access for Fabric users."
+    "ZavaTemplateItem_Description": "A Center of Excellence item that provides onboarding and solution resource access for Fabric users.",
+    "WorkspaceManagerItem_DisplayName": "Workspace Manager",
+    "WorkspaceManagerItem_DisplayName_Plural": "Workspace Managers",
+    "WorkspaceManagerItem_Description": "Manage multiple items in your workspace with bulk copy, delete, rebind, and clone operations"
 }
 
 

@@ -10,6 +10,7 @@ import { OneLakeExplorerItemEditor } from "./items/OneLakeExplorerItem/OneLakeEx
 import PackageInstallerItemEditorAboutPage from "./items/PackageInstallerItem/PackageInstallerItemEditorAboutPage";
 import PackageInstallerItemEditorSettingsPage from "./items/PackageInstallerItem/PackageInstallerItemEditorSettingsPage";
 import { ZavaTemplateItemEditor } from "./items/ZavaTemplateItem/ZavaTemplateItemEditor";
+import { WorkspaceManagerItemEditor } from "./items/WorkspaceManagerItem/WorkspaceManagerItemEditor";
 
 /*
     Add your Item Editor in the Route section of the App function below
@@ -88,6 +89,11 @@ export function App({ history, workloadClient }: AppProps) {
             <Route path="/ZavaTemplateItem-editor/:itemObjectId">
                 <ZavaTemplateItemEditor
                     workloadClient={workloadClient} data-testid="ZavaTemplateItem-editor" />
+            </Route>
+
+            <Route path="/WorkspaceManagerItem-editor/:itemObjectId">
+                <WorkspaceManagerItemEditor
+                    workloadClient={workloadClient} data-testid="WorkspaceManagerItem-editor" />
             </Route>
 
         </Switch>
