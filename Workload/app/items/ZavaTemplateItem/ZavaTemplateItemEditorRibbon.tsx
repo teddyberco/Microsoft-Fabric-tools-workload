@@ -11,8 +11,8 @@ import { PageProps } from "../../App";
 import "../../styles.scss";
 import { t } from "i18next";
 
-const ZavaSolutionStarterItemEditorRibbonHomeTabToolbar = (
-  props: ZavaSolutionStarterItemEditorRibbonProps
+const ZavaTemplateItemEditorRibbonHomeTabToolbar = (
+  props: ZavaTemplateItemEditorRibbonProps
 ) => {
   async function onSaveClicked() {
     await props.saveItemCallback();
@@ -29,34 +29,34 @@ const ZavaSolutionStarterItemEditorRibbonHomeTabToolbar = (
   return (
     <Toolbar>
       <Tooltip
-        content={t("ZavaSolutionStarterItem_Ribbon_Save_Label", "Save")}
+        content={t("ZavaTemplateItem_Ribbon_Save_Label", "Save")}
         relationship="label"
       >
         <ToolbarButton
           disabled={!props.isSaveButtonEnabled}
-          aria-label={t("ZavaSolutionStarterItem_Ribbon_Save_Label", "Save")}
+          aria-label={t("ZavaTemplateItem_Ribbon_Save_Label", "Save")}
           data-testid="zava-solution-starter-item-editor-save-btn"
           icon={<Save24Regular />}
           onClick={onSaveClicked}
         />
       </Tooltip>
       <Tooltip
-        content={t("ZavaSolutionStarterItem_Ribbon_Refresh_Label", "Refresh")}
+        content={t("ZavaTemplateItem_Ribbon_Refresh_Label", "Refresh")}
         relationship="label"
       >
         <ToolbarButton
-          aria-label={t("ZavaSolutionStarterItem_Ribbon_Refresh_Label", "Refresh")}
+          aria-label={t("ZavaTemplateItem_Ribbon_Refresh_Label", "Refresh")}
           data-testid="zava-solution-starter-item-editor-refresh-btn"
           icon={<ArrowSync24Regular />}
           onClick={onRefreshClicked}
         />
       </Tooltip>
       <Tooltip
-        content={t("ZavaSolutionStarterItem_Ribbon_Settings_Label", "Settings")}
+        content={t("ZavaTemplateItem_Ribbon_Settings_Label", "Settings")}
         relationship="label"
       >
         <ToolbarButton
-          aria-label={t("ZavaSolutionStarterItem_Ribbon_Settings_Label", "Settings")}
+          aria-label={t("ZavaTemplateItem_Ribbon_Settings_Label", "Settings")}
           data-testid="zava-solution-starter-item-editor-settings-btn"
           icon={<Settings24Regular />}
           onClick={props.onSettingsCallback}
@@ -66,7 +66,7 @@ const ZavaSolutionStarterItemEditorRibbonHomeTabToolbar = (
   );
 };
 
-export interface ZavaSolutionStarterItemEditorRibbonProps extends PageProps {
+export interface ZavaTemplateItemEditorRibbonProps extends PageProps {
   isRibbonDisabled?: boolean;
   isSaveButtonEnabled?: boolean;
   saveItemCallback: () => Promise<void>;
@@ -76,8 +76,8 @@ export interface ZavaSolutionStarterItemEditorRibbonProps extends PageProps {
   selectedTab?: string;
 }
 
-export function ZavaSolutionStarterItemEditorRibbon(
-  props: ZavaSolutionStarterItemEditorRibbonProps
+export function ZavaTemplateItemEditorRibbon(
+  props: ZavaTemplateItemEditorRibbonProps
 ) {
   const { isRibbonDisabled } = props;
 
@@ -85,11 +85,11 @@ export function ZavaSolutionStarterItemEditorRibbon(
     <div className="ribbon">
       <TabList disabled={isRibbonDisabled}>
         <Tab value="home" data-testid="home-tab-btn">
-          {t("ZavaSolutionStarterItem_Ribbon_Home_Label", "Home")}
+          {t("ZavaTemplateItem_Ribbon_Home_Label", "Home")}
         </Tab>
       </TabList>
       <div className="toolbarContainer">
-        <ZavaSolutionStarterItemEditorRibbonHomeTabToolbar {...props} />
+        <ZavaTemplateItemEditorRibbonHomeTabToolbar {...props} />
       </div>
     </div>
   );

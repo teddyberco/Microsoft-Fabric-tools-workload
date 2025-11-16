@@ -22,13 +22,35 @@
         "customActions": [
         ]},
         "recommendedItemTypes": [
-          "PackageInstaller",
-          "ZavaSolutionStarter"
+          "ZavaTemplate",
+          "PackageInstaller"
         ]
     },
     "createExperience": {
       "description": "Workload_Description",
       "cards": [
+          {
+            "title": "ZavaTemplateItem_DisplayName",
+            "description": "ZavaTemplateItem_Description",
+            "icon": {
+              "name": "assets/images/ZavaTemplateItem-icon.png"
+            },
+            "icon_small": {
+              "name": "assets/images/ZavaTemplateItem-icon.png"
+            },
+            "availableIn": [
+              "home",
+              "create-hub",
+              "workspace-plus-new",
+              "workspace-plus-new-teams"
+            ],
+            "itemType": "ZavaTemplate",
+            "createItemDialogConfig": {
+              "onCreationFailure": { "action": "item.onCreationFailure" },
+              "onCreationSuccess": { "action": "item.onCreationSuccess" }
+            },
+            "itemJobTypes": ["getData", "generalTask"]
+          },
           {
             "title": "PackageInstallerItem_DisplayName",
             "description": "PackageInstallerItem_Description",
@@ -69,29 +91,7 @@
             "createItemDialogConfig": {
               "onCreationFailure": { "action": "item.onCreationFailure" },
               "onCreationSuccess": { "action": "item.onCreationSuccess" }
-            }        
-          },
-          {
-            "title": "ZavaSolutionStarterItem_DisplayName",
-            "description": "ZavaSolutionStarterItem_Description",
-            "icon": {
-              "name": "assets/images/ZavaSolutionStarterItem-icon.png"
-            },
-            "icon_small": {
-              "name": "assets/images/ZavaSolutionStarterItem-icon.png"
-            },
-            "availableIn": [
-              "home",
-              "create-hub",
-              "workspace-plus-new",
-              "workspace-plus-new-teams"
-            ],
-            "itemType": "ZavaSolutionStarter",
-            "createItemDialogConfig": {
-              "onCreationFailure": { "action": "item.onCreationFailure" },
-              "onCreationSuccess": { "action": "item.onCreationSuccess" }
-            }
-          }
+            }          }
         ]
     },
     "productDetail": {
@@ -121,6 +121,5 @@
           "license": {"url": "https://github.com/microsoft/Microsoft-Fabric-tools-workload/blob/main/LICENSE"}
       }
     },
-    "itemJobTypes" :["storeData", "others"],
     "compatibleItemTypes" : ["Lakehouse"]
 }

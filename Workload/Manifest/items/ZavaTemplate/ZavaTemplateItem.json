@@ -1,16 +1,16 @@
 {
-  "name": "ZavaSolutionStarter",
+  "name": "ZavaTemplate",
   "version": "1.100",
-  "displayName": "ZavaSolutionStarterItem_DisplayName",
-  "displayNamePlural": "ZavaSolutionStarterItem_DisplayName_Plural",
+  "displayName": "ZavaTemplateItem_DisplayName",
+  "displayNamePlural": "ZavaTemplateItem_DisplayName_Plural",
   "editor": {
-    "path": "/ZavaSolutionStarterItem-editor"
+    "path": "/ZavaTemplateItem-editor"
   },
   "icon": {
-    "name": "assets/images/ZavaSolutionStarterItem-icon.png"
+    "name": "assets/images/ZavaTemplateItem-icon.png"
   },
   "activeIcon": {
-    "name": "assets/images/ZavaSolutionStarterItem-icon.png"
+    "name": "assets/images/ZavaTemplateItem-icon.png"
   },
   "supportedInMonitoringHub": true,
   "supportedInDatahubL1": true,
@@ -24,5 +24,6 @@
   "createItemDialogConfig": {
     "onCreationFailure": { "action": "item.onCreationFailure" },
     "onCreationSuccess": { "action": "item.onCreationSuccess" }
-  }
+  },
+  "itemJobTypes": ["getData", "generalTask"]
 }

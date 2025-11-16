@@ -1,21 +1,21 @@
 {
-    "Workload_Display_Name": "Fabric Tools",
-    "Workload_Full_Display_Name": "Fabric Tools",
-    "Workload_Description": "Fabric Tools with two item types and playgrounds to get your dev experience started 🚀",
+    "Workload_Display_Name": "Fabric Center of Excellence Tools",
+    "Workload_Full_Display_Name": "Fabric Center of Excellence Tools",
+    "Workload_Description": "Fabric Center of Excellence Tools help Fabric developers create and manage Fabric items with ease. It supports various tasks such as package installation, workspace management, and more.",
     "FabricTools_Docs_Title": "Fabric Tools documentation",
     "FabricTools_Docs_Description": "Fabric Tools documentation description",
     "FabricTools_Docs_Introduction": "Get started with Fabric Tools",
     "Workload_Hub_Workload_Slogan": "Tools that make working with Fabric a breeze.",
-    "Workload_Hub_Workload_Description": "Fabric tools enable developers to create and manage Fabric workspaces with ease. It supports various tasks such as package installation, workspace management, and more.",
-    "PackageInstallerItem_DisplayName": "Package Installer",
-    "PackageInstallerItem_DisplayName_Plural": "Package Installers",
-    "PackageInstallerItem_Description": "A item that can install different package configurations into Fabric workspaces.",
+    "Workload_Hub_Workload_Description": "Fabric Center of Excellence Tools help Fabric developers create and manage Fabric items with ease. It supports various tasks such as package installation, workspace management, and more.",
+    "PackageInstallerItem_DisplayName": "Tempalte creator",
+    "PackageInstallerItem_DisplayName_Plural": "Tempalte creators",
+    "PackageInstallerItem_Description": "A item that can create and install different package configurations into Fabric workspaces.",
     "OneLakeExplorerItem_DisplayName": "OneLake Explorer",
     "OneLakeExplorerItem_DisplayName_Plural": "OneLake Explorers",
     "OneLakeExplorerItem_Description": "An item that provides OneLake file exploration and editing capabilities.",
-    "ZavaSolutionStarterItem_DisplayName": "Zava Solution Starter",
-    "ZavaSolutionStarterItem_DisplayName_Plural": "Zava Solution Starters",
-    "ZavaSolutionStarterItem_Description": "A Center of Excellence item that provides onboarding and solution resource access for Fabric users."
+    "ZavaTemplateItem_DisplayName": "Zava's Data & BI template",
+    "ZavaTemplateItem_DisplayName_Plural": "Zava's Data & BI templates",
+    "ZavaTemplateItem_Description": "A Center of Excellence item that provides onboarding and solution resource access for Fabric users."
 }
 
 

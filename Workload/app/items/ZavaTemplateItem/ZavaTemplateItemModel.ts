@@ -98,7 +98,7 @@ export interface SolutionResource {
 /**
  * Main definition for Zava Solution Starter Item
  */
-export interface ZavaSolutionStarterItemDefinition {
+export interface ZavaTemplateItemDefinition {
   /** Whether the user has completed onboarding */
   isOnboarded: boolean;
   /** Onboarding form data collected from the user */
@@ -107,4 +107,6 @@ export interface ZavaSolutionStarterItemDefinition {
   resources?: SolutionResource[];
   /** Data access requests made by the user */
   dataAccessRequests?: DataAccessRequest[];
+  /** Package deployments that have been executed */
+  deployments?: any[]; // Using any[] to match PackageDeployment type from PackageInstallerItem
 }

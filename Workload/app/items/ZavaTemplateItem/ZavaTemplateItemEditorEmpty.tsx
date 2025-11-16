@@ -9,16 +9,16 @@ import {
   Option,
   Textarea,
 } from "@fluentui/react-components";
-import { COST_CENTERS, DEPARTMENTS, OnboardingFormData } from "./ZavaSolutionStarterItemModel";
+import { COST_CENTERS, DEPARTMENTS, OnboardingFormData } from "./ZavaTemplateItemModel";
 import "./../../styles.scss";
 import { useTranslation } from "react-i18next";
 
-interface ZavaSolutionStarterItemEmptyStateProps {
+interface ZavaTemplateItemEmptyStateProps {
   userName?: string;
   onOnboardingComplete: (formData: OnboardingFormData) => void;
 }
 
-export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterItemEmptyStateProps> = ({
+export const ZavaTemplateItemEditorEmpty: React.FC<ZavaTemplateItemEmptyStateProps> = ({
   userName,
   onOnboardingComplete,
 }) => {
@@ -59,14 +59,14 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
     >
       <Stack.Item>
         <Text as="h1" size={900} weight="semibold">
-          {t("ZavaSolutionStarterItem_Empty_Title", "Start Right")}
+          {t("ZavaTemplateItem_Empty_Title", "Start Right")}
         </Text>
       </Stack.Item>
       
       <Stack.Item>
         <Text as="p" size={400}>
           {t(
-            "ZavaSolutionStarterItem_Empty_Subtitle",
+            "ZavaTemplateItem_Empty_Subtitle",
             "The following details are needed before using Fabric"
           )}
         </Text>
@@ -78,7 +78,7 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
       >
         {/* Name Field - Auto-populated */}
         <Field
-          label={t("ZavaSolutionStarterItem_Empty_Name_Label", "Name")}
+          label={t("ZavaTemplateItem_Empty_Name_Label", "Name")}
           required
         >
           <Input
@@ -87,7 +87,7 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
               setFormData({ ...formData, userName: data.value })
             }
             placeholder={t(
-              "ZavaSolutionStarterItem_Empty_Name_Placeholder",
+              "ZavaTemplateItem_Empty_Name_Placeholder",
               "Your name"
             )}
             disabled={!!userName} // Disable if auto-populated
@@ -96,12 +96,12 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
 
         {/* Cost Center Dropdown */}
         <Field
-          label={t("ZavaSolutionStarterItem_Empty_CostCenter_Label", "Cost Center")}
+          label={t("ZavaTemplateItem_Empty_CostCenter_Label", "Cost Center")}
           required
         >
           <Dropdown
             placeholder={t(
-              "ZavaSolutionStarterItem_Empty_CostCenter_Placeholder",
+              "ZavaTemplateItem_Empty_CostCenter_Placeholder",
               "Select a cost center"
             )}
             value={formData.costCenter}
@@ -120,12 +120,12 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
 
         {/* Department Dropdown */}
         <Field
-          label={t("ZavaSolutionStarterItem_Empty_Department_Label", "Department")}
+          label={t("ZavaTemplateItem_Empty_Department_Label", "Department")}
           required
         >
           <Dropdown
             placeholder={t(
-              "ZavaSolutionStarterItem_Empty_Department_Placeholder",
+              "ZavaTemplateItem_Empty_Department_Placeholder",
               "Select your department"
             )}
             value={formData.department}
@@ -145,7 +145,7 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
         {/* Purpose Text Area */}
         <Field
           label={t(
-            "ZavaSolutionStarterItem_Empty_Purpose_Label",
+            "ZavaTemplateItem_Empty_Purpose_Label",
             "Purpose of using Fabric"
           )}
           required
@@ -156,7 +156,7 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
               setFormData({ ...formData, purpose: data.value })
             }
             placeholder={t(
-              "ZavaSolutionStarterItem_Empty_Purpose_Placeholder",
+              "ZavaTemplateItem_Empty_Purpose_Placeholder",
               "Describe your intended use of Fabric..."
             )}
             rows={4}
@@ -171,7 +171,7 @@ export const ZavaSolutionStarterItemEditorEmpty: React.FC<ZavaSolutionStarterIte
             onClick={handleStartClick}
             disabled={!isFormValid}
           >
-            {t("ZavaSolutionStarterItem_Empty_Start_Button", "Start")}
+            {t("ZavaTemplateItem_Empty_Start_Button", "Start")}
           </Button>
         </Stack.Item>
       </Stack>

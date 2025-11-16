@@ -35,7 +35,8 @@
     "createItemDialogConfig": {
       "onCreationFailure": { "action": "item.onCreationFailure" },
       "onCreationSuccess": { "action": "item.onCreationSuccess" }
-    }
+    },
+    "itemJobTypes": ["storeData", "generalTask"]
   }
 
 

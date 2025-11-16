@@ -16,6 +16,12 @@ import {
   Input,
   Textarea,
   Badge,
+  Table,
+  TableHeader,
+  TableRow,
+  TableHeaderCell,
+  TableBody,
+  TableCell,
 } from "@fluentui/react-components";
 import {
   DocumentRegular,
@@ -27,7 +33,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import jwt_decode from "jwt-decode";
 import { ContextProps, PageProps } from "../../App";
-import { ZavaSolutionStarterItemEditorRibbon } from "./ZavaSolutionStarterItemEditorRibbon";
+import { ZavaTemplateItemEditorRibbon } from "./ZavaTemplateItemEditorRibbon";
 import {
   getWorkloadItem,
   saveItemDefinition,
@@ -37,19 +43,24 @@ import { ItemEditorLoadingProgressBar } from "../../controls/ItemEditorLoadingPr
 import { callNotificationOpen } from "../../controller/NotificationController";
 import { NotificationType } from "@ms-fabric/workload-client";
 import { callAcquireFrontendAccessToken } from "../../controller/AuthenticationController";
-import { ZavaSolutionStarterItemEditorEmpty } from "./ZavaSolutionStarterItemEditorEmpty";
+import { ZavaTemplateItemEditorEmpty } from "./ZavaTemplateItemEditorEmpty";
 import {
-  ZavaSolutionStarterItemDefinition,
+  ZavaTemplateItemDefinition,
   OnboardingFormData,
   SolutionResource,
   DataAccessRequest,
   DataAccessRequestStatus,
-} from "./ZavaSolutionStarterItemModel";
+} from "./ZavaTemplateItemModel";
 import { PackageInstallerContext } from "../PackageInstallerItem/package/PackageInstallerContext";
-import { Package } from "../PackageInstallerItem/PackageInstallerItemModel";
+import { Package, PackageDeployment, DeploymentStatus } from "../PackageInstallerItem/PackageInstallerItemModel";
+import { ZavaTemplateItemTemplateCanvas } from "./ZavaTemplateItemTemplateCanvas";
+import { callDialogOpen } from "../../controller/DialogController";
+import { PackageInstallerDeployResult } from "../PackageInstallerItem/components/PackageInstallerDeployDialog";
+import { DeploymentStrategyFactory } from "../PackageInstallerItem/deployment/DeploymentStrategyFactory";
+import { WorkspaceDisplayNameCell } from "../PackageInstallerItem/components/WorkspaceDisplayName";
 import "./../../styles.scss";
 
-export function ZavaSolutionStarterItemEditor(props: PageProps) {
+export function ZavaTemplateItemEditor(props: PageProps) {
   const pageContext = useParams<ContextProps>();
   const { pathname } = useLocation();
   const { t } = useTranslation();
@@ -58,11 +69,14 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
   const [isUnsaved, setIsUnsaved] = useState<boolean>(false);
   const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
   const [editorItem, setEditorItem] = useState<
-    ItemWithDefinition<ZavaSolutionStarterItemDefinition>
+    ItemWithDefinition<ZavaTemplateItemDefinition>
   >(undefined);
   const [userName, setUserName] = useState<string>("");
   const [isDataAccessDialogOpen, setIsDataAccessDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [showTemplateCanvas, setShowTemplateCanvas] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<Package | undefined>(undefined);
+  const [packageContext] = useState<PackageInstallerContext>(new PackageInstallerContext(workloadClient));
   const [dataAccessRequest, setDataAccessRequest] = useState({
     dataSourceName: "",
     justification: "",
@@ -111,11 +125,9 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     const loadPackages = async () => {
       try {
         await packageContext.packageRegistry.loadFromAssets();
-        setPackagesLoaded(true);
         console.log('Packages loaded successfully');
       } catch (error) {
         console.error('Failed to load packages:', error);
-        setPackagesLoaded(true); // Set to true anyway to avoid infinite loading
       }
     };
     loadPackages();
@@ -124,7 +136,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
   async function loadDataFromUrl(pageContext: ContextProps, pathname: string) {
     setIsLoadingData(true);
     try {
-      const item = await getWorkloadItem<ZavaSolutionStarterItemDefinition>(
+      const item = await getWorkloadItem<ZavaTemplateItemDefinition>(
         workloadClient,
         pageContext.itemObjectId
       );
@@ -142,7 +154,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
           item.definition.onboardingData.onboardedAt = new Date(item.definition.onboardingData.onboardedAt);
         }
         if (item.definition.dataAccessRequests) {
-          item.definition.dataAccessRequests = item.definition.dataAccessRequests.map(req => ({
+          item.definition.dataAccessRequests = item.definition.dataAccessRequests.map((req: DataAccessRequest) => ({
             ...req,
             requestedAt: typeof req.requestedAt === 'string' ? new Date(req.requestedAt) : req.requestedAt
           }));
@@ -154,8 +166,8 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
       console.error("Error loading item:", error);
       callNotificationOpen(
         workloadClient,
-        t("ZavaSolutionStarterItem_Error_Loading", "Failed to load item"),
-        t("ZavaSolutionStarterItem_Error_Loading_Message", "An error occurred while loading the item."),
+        t("ZavaTemplateItem_Error_Loading", "Failed to load item"),
+        t("ZavaTemplateItem_Error_Loading_Message", "An error occurred while loading the item."),
         NotificationType.Error
       );
     } finally {
@@ -194,7 +206,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
 
   const handleOnboardingComplete = useCallback(
     async (formData: OnboardingFormData) => {
-      const updatedDefinition: ZavaSolutionStarterItemDefinition = {
+      const updatedDefinition: ZavaTemplateItemDefinition = {
         ...editorItem.definition,
         isOnboarded: true,
         onboardingData: formData,
@@ -215,7 +227,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
   );
 
   const saveItem = async (
-    itemToSave?: ItemWithDefinition<ZavaSolutionStarterItemDefinition>
+    itemToSave?: ItemWithDefinition<ZavaTemplateItemDefinition>
   ) => {
     const item = itemToSave || editorItem;
     if (!item) return;
@@ -233,16 +245,16 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
       setIsUnsaved(false);
       callNotificationOpen(
         workloadClient,
-        t("ZavaSolutionStarterItem_Save_Success", "Item saved successfully"),
-        t("ZavaSolutionStarterItem_Save_Success_Message", "Your changes have been saved."),
+        t("ZavaTemplateItem_Save_Success", "Item saved successfully"),
+        t("ZavaTemplateItem_Save_Success_Message", "Your changes have been saved."),
         NotificationType.Success
       );
     } catch (error) {
       console.error("Error saving item:", error);
       callNotificationOpen(
         workloadClient,
-        t("ZavaSolutionStarterItem_Error_Saving", "Failed to save item"),
-        t("ZavaSolutionStarterItem_Error_Saving_Message", "An error occurred while saving the item."),
+        t("ZavaTemplateItem_Error_Saving", "Failed to save item"),
+        t("ZavaTemplateItem_Error_Saving_Message", "An error occurred while saving the item."),
         NotificationType.Error
       );
     }
@@ -252,8 +264,8 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     await loadDataFromUrl(pageContext, pathname);
     callNotificationOpen(
       workloadClient,
-      t("ZavaSolutionStarterItem_Refresh_Success", "Content refreshed"),
-      t("ZavaSolutionStarterItem_Refresh_Success_Message", "The content has been refreshed."),
+      t("ZavaTemplateItem_Refresh_Success", "Content refreshed"),
+      t("ZavaTemplateItem_Refresh_Success_Message", "The content has been refreshed."),
       NotificationType.Success
     );
   };
@@ -263,10 +275,10 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
       callNotificationOpen(
         workloadClient,
         t(
-          "ZavaSolutionStarterItem_DataAccess_ValidationError",
+          "ZavaTemplateItem_DataAccess_ValidationError",
           "Please fill in all fields"
         ),
-        t("ZavaSolutionStarterItem_DataAccess_ValidationError_Message", "All fields are required."),
+        t("ZavaTemplateItem_DataAccess_ValidationError_Message", "All fields are required."),
         NotificationType.Error
       );
       return;
@@ -281,7 +293,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
       requestedBy: userName,
     };
 
-    const updatedDefinition: ZavaSolutionStarterItemDefinition = {
+    const updatedDefinition: ZavaTemplateItemDefinition = {
       ...editorItem.definition,
       dataAccessRequests: [
         ...(editorItem.definition.dataAccessRequests || []),
@@ -304,10 +316,10 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     callNotificationOpen(
       workloadClient,
       t(
-        "ZavaSolutionStarterItem_DataAccess_Success",
+        "ZavaTemplateItem_DataAccess_Success",
         "Data access request submitted"
       ),
-      t("ZavaSolutionStarterItem_DataAccess_Success_Message", "Your request has been submitted for review."),
+      t("ZavaTemplateItem_DataAccess_Success_Message", "Your request has been submitted for review."),
       NotificationType.Success
     );
   };
@@ -320,57 +332,157 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
       // Handle other resource types (can be implemented later)
       callNotificationOpen(
         workloadClient,
-        t("ZavaSolutionStarterItem_Resource_Title", "Resource"),
-        t("ZavaSolutionStarterItem_Resource_Message", `Opening ${resource.name}...`),
+        t("ZavaTemplateItem_Resource_Title", "Resource"),
+        t("ZavaTemplateItem_Resource_Message", `Opening ${resource.name}...`),
         NotificationType.Info
       );
     }
   };
 
-  const handleTemplateAction = async (action: string) => {
-    setIsTemplateDialogOpen(false);
-    
-    switch (action) {
-      case "deploy":
-        callNotificationOpen(
-          workloadClient,
-          t("ZavaSolutionStarterItem_Template_Deploy", "Deploy Package"),
-          t("ZavaSolutionStarterItem_Template_Deploy_Message", "Starting package deployment..."),
-          NotificationType.Info
-        );
-        // TODO: Implement package deployment logic
-        break;
-      case "install":
-        callNotificationOpen(
-          workloadClient,
-          t("ZavaSolutionStarterItem_Template_Install", "Install Package"),
-          t("ZavaSolutionStarterItem_Template_Install_Message", "Starting package installation..."),
-          NotificationType.Info
-        );
-        // TODO: Implement package installation logic
-        break;
-      case "browse":
-        callNotificationOpen(
-          workloadClient,
-          t("ZavaSolutionStarterItem_Template_Browse", "Browse Packages"),
-          t("ZavaSolutionStarterItem_Template_Browse_Message", "Opening package browser..."),
-          NotificationType.Info
-        );
-        // TODO: Implement package browsing logic
-        break;
-      case "create":
-        callNotificationOpen(
-          workloadClient,
-          t("ZavaSolutionStarterItem_Template_Create", "Create Package"),
-          t("ZavaSolutionStarterItem_Template_Create_Message", "Opening package creator..."),
-          NotificationType.Info
-        );
-        // TODO: Implement package creation logic
-        break;
-      default:
-        break;
+  const handlePackageSelected = (packageId: string) => {
+    const pkg = packageContext.getPackage(packageId);
+    if (pkg) {
+      setSelectedPackage(pkg);
+      setIsTemplateDialogOpen(false);
+      setShowTemplateCanvas(true);
     }
   };
+
+  const handleBackToHome = () => {
+    setShowTemplateCanvas(false);
+    setSelectedPackage(undefined);
+  };
+
+  const handleDeployPackage = async () => {
+    if (!selectedPackage || !editorItem) return;
+
+    try {
+      // Create a deployment record
+      const deploymentId = Math.random().toString(36).substring(2, 9);
+      const deployment: PackageDeployment = {
+        id: deploymentId,
+        status: DeploymentStatus.Pending,
+        deployedItems: [],
+        packageId: selectedPackage.id,
+      };
+
+      // Get deployment location
+      const deploymentLocation = selectedPackage.deploymentConfig.location;
+      const packageDataParam = encodeURIComponent(JSON.stringify(selectedPackage));
+
+      // Open deployment dialog to select workspace/capacity
+      const dialogResult = await callDialogOpen(
+        workloadClient,
+        process.env.WORKLOAD_NAME,
+        `/PackageInstallerItem-deploy-dialog/${editorItem.id}?packageId=${selectedPackage.id}&deploymentId=${deploymentId}&deploymentLocation=${deploymentLocation}&packageData=${packageDataParam}`,
+        800,
+        600,
+        true
+      );
+
+      const result = dialogResult.value as PackageInstallerDeployResult;
+
+      if (result && result.state === 'deploy') {
+        // Update deployment with workspace config
+        if (result.workspaceConfig) {
+          deployment.workspace = {
+            ...result.workspaceConfig
+          };
+        }
+
+        // Update status and trigger time
+        deployment.status = DeploymentStatus.InProgress;
+        deployment.triggeredTime = new Date();
+        deployment.triggeredBy = "User"; // TODO: Get actual user
+
+        callNotificationOpen(
+          workloadClient,
+          t("ZavaTemplateItem_Template_Deploy", "Deploying Package"),
+          t("ZavaTemplateItem_Template_Deploy_Message", `Starting deployment of ${selectedPackage.displayName}...`),
+          NotificationType.Info
+        );
+
+        // Create a temporary item wrapper with PackageInstallerItemDefinition structure
+        const tempItem = {
+          ...editorItem,
+          definition: {
+            deployments: []
+          }
+        } as any;
+
+        // Create deployment strategy and execute
+        const strategy = DeploymentStrategyFactory.createStrategy(
+          packageContext,
+          tempItem,
+          selectedPackage,
+          deployment
+        );
+
+        const updatedDeployment = await strategy.deploy((step: string, progress: number) => {
+          console.log(`Deployment progress: ${step} - ${progress}%`);
+        });
+
+        // Save the deployment to the item definition
+        const currentDeployments = editorItem.definition.deployments || [];
+        const updatedDefinition: ZavaTemplateItemDefinition = {
+          ...editorItem.definition,
+          deployments: [...currentDeployments, updatedDeployment]
+        };
+        
+        setEditorItem({
+          ...editorItem,
+          definition: updatedDefinition
+        });
+        
+        await saveItemDefinition<ZavaTemplateItemDefinition>(
+          workloadClient,
+          editorItem.id,
+          updatedDefinition
+        );
+        setIsUnsaved(false);
+
+        // Show result
+        if (updatedDeployment.status === DeploymentStatus.Succeeded) {
+          callNotificationOpen(
+            workloadClient,
+            t("ZavaTemplateItem_Template_Deploy_Success", "Deployment Successful"),
+            t("ZavaTemplateItem_Template_Deploy_Success_Message", `${selectedPackage.displayName} has been deployed successfully.`),
+            NotificationType.Success
+          );
+          // Return to home after successful deployment
+          handleBackToHome();
+        } else if (updatedDeployment.status === DeploymentStatus.Failed) {
+          callNotificationOpen(
+            workloadClient,
+            t("ZavaTemplateItem_Template_Deploy_Failed", "Deployment Failed"),
+            t("ZavaTemplateItem_Template_Deploy_Failed_Message", `Failed to deploy ${selectedPackage.displayName}.`),
+            NotificationType.Error
+          );
+        } else if (updatedDeployment.status === DeploymentStatus.InProgress) {
+          callNotificationOpen(
+            workloadClient,
+            t("ZavaTemplateItem_Template_Deploy_InProgress", "Deployment Started"),
+            t("ZavaTemplateItem_Template_Deploy_InProgress_Message", `Deployment ${updatedDeployment.job?.id} is in progress.`),
+            NotificationType.Info
+          );
+          // Return to home to let user continue working
+          handleBackToHome();
+        }
+      } else {
+        console.log("Deployment dialog was cancelled");
+      }
+    } catch (error) {
+      console.error("Error deploying package:", error);
+      callNotificationOpen(
+        workloadClient,
+        t("ZavaTemplateItem_Template_Deploy_Error", "Deployment Error"),
+        t("ZavaTemplateItem_Template_Deploy_Error_Message", `Failed to deploy: ${error.message || error}`),
+        NotificationType.Error
+      );
+    }
+  };
+
+
 
   const getResourceIcon = (type: string) => {
     switch (type) {
@@ -385,27 +497,14 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     }
   };
 
-  const handleTemplateSelection = (packageId: string) => {
-    const selectedPackage = packageContext.packageRegistry.getPackage(packageId);
-    if (selectedPackage) {
-      callNotificationOpen(
-        workloadClient,
-        t("ZavaSolutionStarterItem_Template_Selected", "Template Selected"),
-        t("ZavaSolutionStarterItem_Template_Selected_Message", `You selected: ${selectedPackage.displayName}`),
-        NotificationType.Success
-      );
-      setIsTemplatesDialogOpen(false);
-    }
-  };
-
   if (isLoadingData) {
-    return <ItemEditorLoadingProgressBar message={t("ZavaSolutionStarterItem_Loading", "Loading...")} />;
+    return <ItemEditorLoadingProgressBar message={t("ZavaTemplateItem_Loading", "Loading...")} />;
   }
 
   if (!editorItem) {
     return (
       <Text>
-        {t("ZavaSolutionStarterItem_Error_NotFound", "Item not found")}
+        {t("ZavaTemplateItem_Error_NotFound", "Item not found")}
       </Text>
     );
   }
@@ -414,7 +513,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
   if (!editorItem.definition.isOnboarded) {
     return (
       <div className="item-page">
-        <ZavaSolutionStarterItemEditorRibbon
+        <ZavaTemplateItemEditorRibbon
           {...props}
           isRibbonDisabled={true}
           isSaveButtonEnabled={false}
@@ -422,7 +521,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
           onSettingsCallback={() => {}}
         />
         <div className="item-content">
-          <ZavaSolutionStarterItemEditorEmpty
+          <ZavaTemplateItemEditorEmpty
             userName={userName}
             onOnboardingComplete={handleOnboardingComplete}
           />
@@ -431,10 +530,24 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
     );
   }
 
+  // Show template canvas if a package is selected
+  if (showTemplateCanvas && selectedPackage) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+        <ZavaTemplateItemTemplateCanvas
+          package={selectedPackage}
+          context={packageContext}
+          onBack={handleBackToHome}
+          onDeploy={handleDeployPackage}
+        />
+      </div>
+    );
+  }
+
   // Main solution starter experience
   return (
     <div className="item-page">
-      <ZavaSolutionStarterItemEditorRibbon
+      <ZavaTemplateItemEditorRibbon
         {...props}
         isSaveButtonEnabled={isUnsaved}
         saveItemCallback={() => saveItem()}
@@ -446,13 +559,13 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
           <Stack tokens={{ childrenGap: 8 }}>
             <Text as="h2" size={700} weight="semibold">
               {t(
-                "ZavaSolutionStarterItem_Welcome_Title",
+                "ZavaTemplateItem_Welcome_Title",
                 `Welcome, ${editorItem.definition.onboardingData?.userName || "User"}!`
               )}
             </Text>
             <Text>
               {t(
-                "ZavaSolutionStarterItem_Welcome_Subtitle",
+                "ZavaTemplateItem_Welcome_Subtitle",
                 "Access your solution resources and request data access below"
               )}
             </Text>
@@ -461,7 +574,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
           {/* Solution Resources */}
           <Stack tokens={{ childrenGap: 12 }}>
             <Text as="h3" size={600} weight="semibold">
-              {t("ZavaSolutionStarterItem_Resources_Title", "Solution Resources")}
+              {t("ZavaTemplateItem_Resources_Title", "Solution Resources")}
             </Text>
             <div
               style={{
@@ -470,7 +583,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                 gap: "16px",
               }}
             >
-              {editorItem.definition.resources?.map((resource) => (
+              {editorItem.definition.resources?.map((resource: SolutionResource) => (
                 <Card key={resource.id}>
                   <CardHeader
                     image={
@@ -487,7 +600,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                       size="small"
                       onClick={() => handleResourceClick(resource)}
                     >
-                      {t("ZavaSolutionStarterItem_Resource_Open", "Open")}
+                      {t("ZavaTemplateItem_Resource_Open", "Open")}
                     </Button>
                   </Stack>
                 </Card>
@@ -504,7 +617,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                   header={
                     <Text weight="semibold">
                       {t(
-                        "ZavaSolutionStarterItem_DataAccess_Title",
+                        "ZavaTemplateItem_DataAccess_Title",
                         "Ask for Data Access"
                       )}
                     </Text>
@@ -512,7 +625,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                   description={
                     <Text size={300}>
                       {t(
-                        "ZavaSolutionStarterItem_DataAccess_Description",
+                        "ZavaTemplateItem_DataAccess_Description",
                         "Request access to data you don't have permissions for"
                       )}
                     </Text>
@@ -528,7 +641,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                     <DialogTrigger disableButtonEnhancement>
                       <Button appearance="primary" size="small">
                         {t(
-                          "ZavaSolutionStarterItem_DataAccess_Request",
+                          "ZavaTemplateItem_DataAccess_Request",
                           "Request Access"
                         )}
                       </Button>
@@ -537,7 +650,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                       <DialogBody>
                         <DialogTitle>
                           {t(
-                            "ZavaSolutionStarterItem_DataAccess_Dialog_Title",
+                            "ZavaTemplateItem_DataAccess_Dialog_Title",
                             "Request Data Access"
                           )}
                         </DialogTitle>
@@ -545,7 +658,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                           <Stack tokens={{ childrenGap: 16 }}>
                             <Field
                               label={t(
-                                "ZavaSolutionStarterItem_DataAccess_DataSource_Label",
+                                "ZavaTemplateItem_DataAccess_DataSource_Label",
                                 "Data Source Name"
                               )}
                               required
@@ -559,14 +672,14 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                                   })
                                 }
                                 placeholder={t(
-                                  "ZavaSolutionStarterItem_DataAccess_DataSource_Placeholder",
+                                  "ZavaTemplateItem_DataAccess_DataSource_Placeholder",
                                   "e.g., Sales Database, Customer Analytics"
                                 )}
                               />
                             </Field>
                             <Field
                               label={t(
-                                "ZavaSolutionStarterItem_DataAccess_Justification_Label",
+                                "ZavaTemplateItem_DataAccess_Justification_Label",
                                 "Business Justification"
                               )}
                               required
@@ -580,7 +693,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                                   })
                                 }
                                 placeholder={t(
-                                  "ZavaSolutionStarterItem_DataAccess_Justification_Placeholder",
+                                  "ZavaTemplateItem_DataAccess_Justification_Placeholder",
                                   "Explain why you need access to this data..."
                                 )}
                                 rows={4}
@@ -591,7 +704,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                         <DialogActions>
                           <DialogTrigger disableButtonEnhancement>
                             <Button appearance="secondary">
-                              {t("ZavaSolutionStarterItem_Dialog_Cancel", "Cancel")}
+                              {t("ZavaTemplateItem_Dialog_Cancel", "Cancel")}
                             </Button>
                           </DialogTrigger>
                           <Button
@@ -599,7 +712,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                             onClick={handleDataAccessRequest}
                           >
                             {t(
-                              "ZavaSolutionStarterItem_Dialog_Submit",
+                              "ZavaTemplateItem_Dialog_Submit",
                               "Submit Request"
                             )}
                           </Button>
@@ -612,18 +725,92 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
             </div>
           </Stack>
 
+          {/* Deployments */}
+          <Stack tokens={{ childrenGap: 12 }}>
+            <Text as="h3" size={600} weight="semibold">
+              {t("ZavaTemplateItem_Deployments_Title", "Deployments")}
+            </Text>
+            {editorItem.definition.deployments && editorItem.definition.deployments.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>{t("ZavaTemplateItem_Deployment_Id", "Deployment ID")}</TableHeaderCell>
+                    <TableHeaderCell>{t("ZavaTemplateItem_Deployment_Package", "Package")}</TableHeaderCell>
+                    <TableHeaderCell>{t("ZavaTemplateItem_Deployment_Status", "Status")}</TableHeaderCell>
+                    <TableHeaderCell>{t("ZavaTemplateItem_Deployment_Time", "Deployed At")}</TableHeaderCell>
+                    <TableHeaderCell>{t("ZavaTemplateItem_Deployment_Workspace", "Workspace")}</TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {editorItem.definition.deployments.map((deployment: any) => (
+                    <TableRow key={deployment.id}>
+                      <TableCell>
+                        <Text size={300}>{deployment.id}</Text>
+                      </TableCell>
+                      <TableCell>
+                        <Text weight="semibold">{deployment.packageName || deployment.packageId}</Text>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          appearance="filled"
+                          color={
+                            deployment.status === 2 // DeploymentStatus.Succeeded
+                              ? "success"
+                              : deployment.status === 3 // DeploymentStatus.Failed
+                              ? "danger"
+                              : deployment.status === 1 // DeploymentStatus.InProgress
+                              ? "warning"
+                              : "informative" // Pending
+                          }
+                        >
+                          {deployment.status === 0 ? "Pending" :
+                           deployment.status === 1 ? "In Progress" :
+                           deployment.status === 2 ? "Succeeded" :
+                           deployment.status === 3 ? "Failed" : "Unknown"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Text size={300}>
+                          {deployment.triggeredTime
+                            ? new Date(deployment.triggeredTime).toLocaleString()
+                            : t("ZavaTemplateItem_Deployment_NotStarted", "Not started")}
+                        </Text>
+                      </TableCell>
+                      <TableCell>
+                        {deployment.workspace?.id ? (
+                          <WorkspaceDisplayNameCell
+                            context={packageContext}
+                            workspaceId={deployment.workspace.id}
+                          />
+                        ) : (
+                          <Text size={300}>-</Text>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <Card>
+                <Text size={300} style={{ fontStyle: "italic", textAlign: "center", padding: "24px" }}>
+                  {t("ZavaTemplateItem_Deployments_Empty", "No packages have been deployed yet")}
+                </Text>
+              </Card>
+            )}
+          </Stack>
+
           {/* Data Access Requests */}
           {editorItem.definition.dataAccessRequests &&
             editorItem.definition.dataAccessRequests.length > 0 && (
               <Stack tokens={{ childrenGap: 12 }}>
                 <Text as="h3" size={600} weight="semibold">
                   {t(
-                    "ZavaSolutionStarterItem_Requests_Title",
+                    "ZavaTemplateItem_Requests_Title",
                     "Your Data Access Requests"
                   )}
                 </Text>
                 <Stack tokens={{ childrenGap: 8 }}>
-                  {editorItem.definition.dataAccessRequests.map((request) => (
+                  {editorItem.definition.dataAccessRequests.map((request: DataAccessRequest) => (
                     <Card key={request.id}>
                       <Stack horizontal horizontalAlign="space-between">
                         <Stack tokens={{ childrenGap: 4 }}>
@@ -631,7 +818,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                           <Text size={300}>{request.justification}</Text>
                           <Text size={200}>
                             {t(
-                              "ZavaSolutionStarterItem_Request_Date",
+                              "ZavaTemplateItem_Request_Date",
                               "Requested on"
                             )}{" "}
                             {request.requestedAt.toLocaleDateString()}
@@ -662,16 +849,16 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
               </Stack>
             )}
 
-          {/* Template Actions Dialog */}
+          {/* Template Package Selection Dialog */}
           <Dialog
             open={isTemplateDialogOpen}
             onOpenChange={(event, data) => setIsTemplateDialogOpen(data.open)}
           >
-            <DialogSurface>
+            <DialogSurface style={{ maxWidth: "90vw", width: "1200px" }}>
               <DialogBody>
                 <DialogTitle>
                   {t(
-                    "ZavaSolutionStarterItem_Template_Dialog_Title",
+                    "ZavaTemplateItem_Template_Dialog_Title",
                     "Templates & Examples"
                   )}
                 </DialogTitle>
@@ -679,120 +866,75 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                   <Stack tokens={{ childrenGap: 16 }}>
                     <Text>
                       {t(
-                        "ZavaSolutionStarterItem_Template_Dialog_Description",
-                        "Choose an action to work with solution packages and templates:"
+                        "ZavaTemplateItem_Template_Dialog_Description",
+                        "Choose a package template to deploy to your workspace:"
                       )}
                     </Text>
 
-                    <Stack tokens={{ childrenGap: 12 }}>
-                      <Card
-                        onClick={() => handleTemplateAction("deploy")}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <CardHeader
-                          image={
-                            <div style={{ fontSize: "24px" }}>🚀</div>
-                          }
-                          header={
-                            <Text weight="semibold">
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Deploy_Title",
-                                "Deploy Package"
-                              )}
-                            </Text>
-                          }
-                          description={
-                            <Text size={300}>
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Deploy_Desc",
-                                "Deploy a solution package to your workspace"
-                              )}
-                            </Text>
-                          }
-                        />
-                      </Card>
-
-                      <Card
-                        onClick={() => handleTemplateAction("install")}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <CardHeader
-                          image={
-                            <div style={{ fontSize: "24px" }}>📦</div>
-                          }
-                          header={
-                            <Text weight="semibold">
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Install_Title",
-                                "Install Package"
-                              )}
-                            </Text>
-                          }
-                          description={
-                            <Text size={300}>
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Install_Desc",
-                                "Install a pre-configured solution package"
-                              )}
-                            </Text>
-                          }
-                        />
-                      </Card>
-
-                      <Card
-                        onClick={() => handleTemplateAction("browse")}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <CardHeader
-                          image={
-                            <div style={{ fontSize: "24px" }}>🔍</div>
-                          }
-                          header={
-                            <Text weight="semibold">
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Browse_Title",
-                                "Browse Packages"
-                              )}
-                            </Text>
-                          }
-                          description={
-                            <Text size={300}>
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Browse_Desc",
-                                "Explore available solution packages and templates"
-                              )}
-                            </Text>
-                          }
-                        />
-                      </Card>
-
-                      <Card
-                        onClick={() => handleTemplateAction("create")}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <CardHeader
-                          image={
-                            <div style={{ fontSize: "24px" }}>✨</div>
-                          }
-                          header={
-                            <Text weight="semibold">
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Create_Title",
-                                "Create Package"
-                              )}
-                            </Text>
-                          }
-                          description={
-                            <Text size={300}>
-                              {t(
-                                "ZavaSolutionStarterItem_Template_Create_Desc",
-                                "Create a new custom solution package"
-                              )}
-                            </Text>
-                          }
-                        />
-                      </Card>
-                    </Stack>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                        gap: "16px",
+                        maxHeight: "60vh",
+                        overflow: "auto",
+                        padding: "8px"
+                      }}
+                    >
+                      {packageContext.packageRegistry.getPackagesArray().map((pkg: Package) => (
+                        <Card
+                          key={pkg.id}
+                          style={{ cursor: "pointer", height: "100%" }}
+                          onClick={() => handlePackageSelected(pkg.id)}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              height: "100px",
+                              padding: "16px",
+                              borderBottom: "1px solid #e1dfdd"
+                            }}
+                          >
+                            <img
+                              src={pkg.icon || "/assets/items/PackageInstallerItem/PackageDefault-icon.png"}
+                              alt={pkg.displayName}
+                              style={{
+                                width: "64px",
+                                height: "64px",
+                                objectFit: "cover",
+                                borderRadius: "4px"
+                              }}
+                            />
+                          </div>
+                          <CardHeader
+                            header={
+                              <Text weight="semibold" size={500}>
+                                {pkg.displayName}
+                              </Text>
+                            }
+                            description={
+                              <Text size={300}>
+                                {pkg.description}
+                              </Text>
+                            }
+                          />
+                          <div style={{ padding: "0 16px 16px" }}>
+                            <Button
+                              appearance="primary"
+                              size="small"
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                handlePackageSelected(pkg.id);
+                              }}
+                            >
+                              {t("ZavaTemplateItem_Template_Select", "Select")}
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
                   </Stack>
                 </DialogContent>
                 <DialogActions>
@@ -800,7 +942,7 @@ export function ZavaSolutionStarterItemEditor(props: PageProps) {
                     appearance="secondary"
                     onClick={() => setIsTemplateDialogOpen(false)}
                   >
-                    {t("ZavaSolutionStarterItem_Dialog_Close", "Close")}
+                    {t("ZavaTemplateItem_Dialog_Close", "Close")}
                   </Button>
                 </DialogActions>
               </DialogBody>
