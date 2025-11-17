@@ -2,6 +2,9 @@
     background: #f3f2f1;
     padding: 8px;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .editor .main {
@@ -10,6 +13,9 @@
     box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.14);
     margin: 5px 0;
     padding: 5px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
 }
 .description {
     white-space: pre-wrap;
@@ -737,5 +743,213 @@
         margin-bottom: 16px;
       }
     }
+  }
+}
+
+// Fabric DataGrid styles
+.fabric-datagrid-container {
+  width: 100%;
+  overflow: visible;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid var(--colorNeutralStroke2, #E0E0E0);
+  box-shadow: 0 0 2px rgba(0,0,0,0.12);
+}
+
+.fabric-datagrid {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  table-layout: fixed;
+  
+  thead {
+    background: var(--colorNeutralBackground2, #FAFAFA);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    
+    tr {
+      height: 32px;
+      
+      th {
+        position: relative;
+        padding: 8px 4px;
+        text-align: left;
+        font-weight: 400;
+        color: var(--colorNeutralForeground1, #242424);
+        border: 1px solid var(--colorNeutralStroke2, #E0E0E0);
+        user-select: none;
+        vertical-align: middle;
+        box-sizing: border-box;
+        overflow: visible;
+        
+        &.row-header-column {
+          width: 48px !important;
+          min-width: 48px;
+          max-width: 48px;
+          padding: 8px 4px;
+          text-align: center;
+          border-right: 1px solid var(--colorNeutralStroke2, #E0E0E0);
+        }
+      }
+    }
+  }
+  
+  tbody {
+    tr {
+      height: 32px;
+      background: white;
+      transition: background-color 0.1s;
+      
+      &:hover {
+        background: var(--colorNeutralBackground1Hover, #F5F5F5);
+      }
+      
+      &.selected-row {
+        background: var(--colorNeutralBackground1Selected, #EBF3FC);
+        
+        &:hover {
+          background: var(--colorNeutralBackground1SelectedHover, #D6E6F9);
+        }
+      }
+      
+      td {
+        padding: 6px 8px;
+        border: 1px solid var(--colorNeutralStroke2, #E0E0E0);
+        vertical-align: middle;
+        box-sizing: border-box;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: normal;
+        word-wrap: break-word;
+        
+        &.row-header-cell-container {
+          width: 48px !important;
+          min-width: 48px;
+          max-width: 48px;
+          padding: 6px 4px;
+          text-align: center;
+          background: var(--colorNeutralBackground2, #FAFAFA);
+          border-right: 1px solid var(--colorNeutralStroke2, #E0E0E0);
+        }
+      }
+    }
+  }
+}
+
+// DataGrid cell content styles
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  width: 100%;
+  
+  .header-text {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    color: var(--colorNeutralForeground1, #242424);
+    white-space: nowrap;
+  }
+}
+
+.header-checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  
+  .header-checkbox {
+    margin: 0;
+    display: flex;
+  }
+}
+
+.row-header-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  
+  .row-number {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--colorNeutralForeground1, #242424);
+  }
+  
+  .row-checkbox {
+    margin: 0;
+    display: flex;
+  }
+}
+
+.cell-text {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: var(--colorNeutralForeground1, #242424);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+  
+  &.description-text {
+    color: var(--colorNeutralForeground2, #616161);
+  }
+  
+  &.item-id-text {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--colorNeutralForeground2, #616161);
+  }
+}
+
+.type-badge {
+  font-size: 11px;
+  line-height: 16px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+// Column resizer
+.column-resizer {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 20;
+  
+  &:hover {
+    background: var(--colorBrandBackground, #0078D4);
+    width: 4px;
+  }
+  
+  &.resizing {
+    background: var(--colorBrandBackground, #0078D4);
+    width: 4px;
+    opacity: 0.8;
+  }
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    right: -4px;
+    top: 0;
+    bottom: 0;
+    cursor: col-resize;
   }
 }

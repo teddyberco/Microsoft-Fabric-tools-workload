@@ -41,7 +41,6 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
   const [editorItem, setEditorItem] = useState<ItemWithDefinition<WorkspaceManagerItemDefinition>>(undefined);
   const [selectedView, setSelectedView] = useState<CurrentView>(VIEW_TYPES.EMPTY);
   const [workspaceItems, setWorkspaceItems] = useState<WorkspaceItem[]>([]);
-  const [isLoadingWorkspaceItems, setIsLoadingWorkspaceItems] = useState<boolean>(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState<boolean>(false);
   const [itemsToDelete, setItemsToDelete] = useState<WorkspaceItem[]>([]);
   const [showRebindDialog, setShowRebindDialog] = useState<boolean>(false);
@@ -101,8 +100,6 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
 
   async function refreshWorkspaceItems() {
     if (!editorItem?.workspaceId) return;
-    
-    setIsLoadingWorkspaceItems(true);
     
     try {
       // Acquire token for Workspace.Read.All scope
@@ -171,8 +168,6 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
         undefined,
         undefined
       );
-    } finally {
-      setIsLoadingWorkspaceItems(false);
     }
   }
 
@@ -274,7 +269,14 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
           });
           
           if (!response.ok) {
-            throw new Error(`Delete failed: ${response.status} ${response.statusText}`);
+            let errorDetail = '';
+            try {
+              const errorBody = await response.text();
+              errorDetail = errorBody ? ` - ${errorBody}` : '';
+            } catch (e) {
+              // Ignore parsing errors
+            }
+            throw new Error(`Delete failed: ${response.status} ${response.statusText}${errorDetail}`);
           }
           
           deletedItemIds.push(item.id);
@@ -284,6 +286,15 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
           console.error(`Failed to delete item ${item.displayName} of type ${item.type}:`, error);
           
           let errorMessage = error?.message || 'Unknown error';
+          
+          // Provide more context for common errors
+          if (errorMessage.includes('400')) {
+            errorMessage = 'Cannot delete: This item may have dependencies, be protected, or be a system item that cannot be deleted';
+          } else if (errorMessage.includes('403')) {
+            errorMessage = 'Permission denied: You do not have sufficient permissions to delete this item';
+          } else if (errorMessage.includes('404')) {
+            errorMessage = 'Item not found: The item may have already been deleted';
+          }
           
           failedItems.push({ name: `${item.displayName} (${item.type})`, error: errorMessage });
           failedCount++;
@@ -1046,20 +1057,11 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
                   <Text as="h3" size={600} weight="semibold">
                     Workspace Items
                   </Text>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {selectedItemsCount > 0 && (
-                      <Badge appearance="filled" color="informative">
-                        {selectedItemsCount} selected
-                      </Badge>
-                    )}
-                    <Button 
-                      appearance="outline" 
-                      onClick={refreshWorkspaceItems}
-                      disabled={isLoadingWorkspaceItems}
-                    >
-                      {isLoadingWorkspaceItems ? "Refreshing..." : "Refresh Items"}
-                    </Button>
-                  </div>
+                  {selectedItemsCount > 0 && (
+                    <Badge appearance="filled" color="informative">
+                      {selectedItemsCount} selected
+                    </Badge>
+                  )}
                 </div>
 
                 {workspaceItems.length === 0 ? (
