@@ -11,6 +11,7 @@ export interface WorkspaceItem {
   type: string;
   description?: string;
   workspaceId: string;
+  folderPath?: string;
   selected?: boolean;
 }
 

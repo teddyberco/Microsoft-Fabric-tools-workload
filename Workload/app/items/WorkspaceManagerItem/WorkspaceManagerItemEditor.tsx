@@ -110,7 +110,26 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
       const accessToken = await callAcquireFrontendAccessToken(workloadClient, scopes);
       console.log("Token acquired successfully");
       
-      // Call Fabric REST API directly
+      // Fetch folders first
+      const foldersUrl = `${EnvironmentConstants.FabricApiBaseUrl}/v1/workspaces/${editorItem.workspaceId}/folders`;
+      const foldersResponse = await fetch(foldersUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken.token
+        }
+      });
+      
+      const folderMap = new Map<string, string>();
+      if (foldersResponse.ok) {
+        const foldersResult = await foldersResponse.json();
+        const folders = foldersResult.value || [];
+        folders.forEach((folder: any) => {
+          folderMap.set(folder.id, folder.displayName);
+        });
+        console.log('[WorkspaceManager] Loaded folders:', folders.length, folderMap);
+      }
+      
+      // Call Fabric REST API for items
       const apiUrl = `${EnvironmentConstants.FabricApiBaseUrl}/v1/workspaces/${editorItem.workspaceId}/items`;
       
       const response = await fetch(apiUrl, {
@@ -129,15 +148,23 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
       const result = await response.json();
       const fabricItems = result.value || [];
       
+      console.log(`[WorkspaceManager] Loaded ${fabricItems.length} items from workspace`);
+      
       // Convert Fabric items to our WorkspaceItem format
-      const workspaceItems: WorkspaceItem[] = fabricItems.map((item: any) => ({
-        id: item.id,
-        displayName: item.displayName,
-        type: item.type,
-        description: item.description || undefined,
-        workspaceId: editorItem.workspaceId,
-        selected: false
-      }));
+      const workspaceItems: WorkspaceItem[] = fabricItems.map((item: any) => {
+        // Get folder name from folder ID (items have folderId property when in a folder)
+        const folderName = item.folderId ? folderMap.get(item.folderId) : undefined;
+        
+        return {
+          id: item.id,
+          displayName: item.displayName,
+          type: item.type,
+          description: item.description || undefined,
+          workspaceId: editorItem.workspaceId,
+          folderPath: folderName,
+          selected: false
+        };
+      });
       
       setWorkspaceItems(workspaceItems);
       updateItemDefinition({ 

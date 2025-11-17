@@ -23,6 +23,7 @@ export const ResizableTable: React.FC<ResizableTableProps> = ({ items, onSelecti
     name: 250,
     type: 280,
     itemId: 320,
+    folder: 200,
     description: 350,
   });
 
@@ -68,6 +69,13 @@ export const ResizableTable: React.FC<ResizableTableProps> = ({ items, onSelecti
         width: columnWidths.itemId,
         minWidth: 220,
         render: (item: WorkspaceItem) => <Text className="cell-text item-id-text" title={item.id}>{item.id}</Text>,
+      },
+      {
+        id: 'folder',
+        label: 'Folder',
+        width: columnWidths.folder,
+        minWidth: 150,
+        render: (item: WorkspaceItem) => <Text className="cell-text" title={item.folderPath}>{item.folderPath || '/'}</Text>,
       },
       {
         id: 'description',
