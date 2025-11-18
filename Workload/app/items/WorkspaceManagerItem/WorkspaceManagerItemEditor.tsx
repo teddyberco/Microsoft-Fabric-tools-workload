@@ -3,7 +3,6 @@ import {
   Field, 
   Button, 
   Card, 
-  CardHeader, 
   Text,
   Badge,
   Dialog,
@@ -51,6 +50,11 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
   const [cloneProgressLogs, setCloneProgressLogs] = useState<string[]>([]);
   const [showOperationLogsDialog, setShowOperationLogsDialog] = useState<boolean>(false);
   const [selectedOperation, setSelectedOperation] = useState<WorkspaceOperation | null>(null);
+  const [folders, setFolders] = useState<Array<{id: string, displayName: string}>>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>('');
+  const [showDeleteFolderDialog, setShowDeleteFolderDialog] = useState<boolean>(false);
+  const [showDeleteProgressDialog, setShowDeleteProgressDialog] = useState<boolean>(false);
+  const [deleteProgressLogs, setDeleteProgressLogs] = useState<string[]>([]);
 
   // Helper function to update item definition immutably
   const updateItemDefinition = useCallback((updates: Partial<WorkspaceManagerItemDefinition>) => {
@@ -122,11 +126,12 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
       const folderMap = new Map<string, string>();
       if (foldersResponse.ok) {
         const foldersResult = await foldersResponse.json();
-        const folders = foldersResult.value || [];
-        folders.forEach((folder: any) => {
+        const fetchedFolders = foldersResult.value || [];
+        fetchedFolders.forEach((folder: any) => {
           folderMap.set(folder.id, folder.displayName);
         });
-        console.log('[WorkspaceManager] Loaded folders:', folders.length, folderMap);
+        setFolders(fetchedFolders);
+        console.log('[WorkspaceManager] Loaded folders:', fetchedFolders.length, folderMap);
       }
       
       // Call Fabric REST API for items
@@ -231,6 +236,221 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
 
     const updatedOperations = [...(editorItem.definition?.operations || []), operation];
     updateItemDefinition({ operations: updatedOperations });
+  }
+
+  async function handleDeleteFolder(folderId?: string) {
+    const folderToDelete = folderId || selectedFolderId;
+    
+    if (!folderToDelete) {
+      callNotificationOpen(
+        workloadClient,
+        "No Folder Selected",
+        "Please select a folder to delete.",
+        undefined,
+        undefined
+      );
+      return;
+    }
+
+    // Update selected folder if passed as parameter
+    if (folderId && folderId !== selectedFolderId) {
+      setSelectedFolderId(folderId);
+    }
+
+    // Show confirmation dialog
+    setShowDeleteFolderDialog(true);
+  }
+
+  async function confirmDeleteFolder() {
+    if (!editorItem?.workspaceId || !selectedFolderId) return;
+    
+    const folderName = folders.find(f => f.id === selectedFolderId)?.displayName || 'Unknown Folder';
+    const operationId = `delete-folder-${Date.now()}`;
+    
+    setShowDeleteFolderDialog(false);
+    setShowDeleteProgressDialog(true);
+    setDeleteProgressLogs([]);
+    
+    const addLog = (message: string) => {
+      console.log(message);
+      setDeleteProgressLogs(prev => [...prev, message]);
+    };
+    
+    try {
+      const scopes = "https://api.fabric.microsoft.com/Workspace.ReadWrite.All";
+      const accessToken = await callAcquireFrontendAccessToken(workloadClient, scopes);
+      
+      // Get items in the folder
+      const itemsInFolder = workspaceItems.filter(item => {
+        const folder = folders.find(f => f.id === selectedFolderId);
+        return item.folderPath === folder?.displayName;
+      });
+      
+      addLog(`Starting deletion of ${itemsInFolder.length} item(s) in folder...`);
+      
+      let successCount = 0;
+      let failCount = 0;
+      const failedItems: string[] = [];
+      
+      // Delete all items in the folder first
+      for (const item of itemsInFolder) {
+        addLog(`Deleting ${item.type}: ${item.displayName}...`);
+        
+        try {
+          const deleteUrl = `${EnvironmentConstants.FabricApiBaseUrl}/v1/workspaces/${editorItem.workspaceId}/items/${item.id}`;
+          const response = await fetch(deleteUrl, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': 'Bearer ' + accessToken.token
+            }
+          });
+          
+          if (response.ok) {
+            successCount++;
+            addLog(`✓ Successfully deleted: ${item.displayName}`);
+          } else {
+            failCount++;
+            failedItems.push(item.displayName);
+            const errorText = await response.text();
+            addLog(`✗ Failed to delete ${item.displayName}: ${response.status} - ${errorText}`);
+          }
+        } catch (error) {
+          failCount++;
+          failedItems.push(item.displayName);
+          addLog(`✗ Error deleting ${item.displayName}: ${error}`);
+        }
+        
+        // Small delay to allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      addLog(`\nDeletion complete: ${successCount} succeeded, ${failCount} failed`);
+      
+      // Only attempt to delete folder if all items were successfully deleted or if folder was already empty
+      if (failCount > 0 && itemsInFolder.length > 0) {
+        addLog(`\n⚠ Cannot delete folder - some items failed to delete.`);
+        addLog(`Failed items: ${failedItems.join(', ')}`);
+        addLog(`\nPlease check permissions or try deleting failed items manually.`);
+        
+        // Wait a bit so user can read the logs
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        callNotificationOpen(
+          workloadClient,
+          "Partial Delete",
+          `Deleted ${successCount} item(s), but ${failCount} failed. Folder not deleted.`,
+          undefined,
+          undefined
+        );
+      } else {
+        // All items deleted successfully, now delete the folder
+        addLog(`\nAll items deleted successfully. Deleting folder...`);
+        
+        const deleteFolderUrl = `${EnvironmentConstants.FabricApiBaseUrl}/v1/workspaces/${editorItem.workspaceId}/folders/${selectedFolderId}`;
+        const folderResponse = await fetch(deleteFolderUrl, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken.token
+          }
+        });
+        
+        if (folderResponse.ok) {
+          addLog(`✓ Folder deleted successfully!`);
+          
+          // Wait a bit so user can read the success message
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          callNotificationOpen(
+            workloadClient,
+            "Folder Deleted",
+            `Successfully deleted folder and ${successCount} item(s).`,
+            undefined,
+            undefined
+          );
+          
+          setSelectedFolderId('');
+        } else {
+          const errorText = await folderResponse.text();
+          addLog(`✗ Failed to delete folder: ${folderResponse.status} - ${errorText}`);
+          
+          callNotificationOpen(
+            workloadClient,
+            "Delete Failed",
+            `Deleted ${successCount} item(s) but failed to delete folder.`,
+            undefined,
+            undefined
+          );
+        }
+      }
+      
+      // Refresh to show current state
+      addLog(`\nRefreshing workspace items...`);
+      await refreshWorkspaceItems();
+      addLog(`✓ Refresh complete`);
+      
+      // Add final summary
+      addLog(`\n${'='.repeat(50)}`);
+      addLog(`OPERATION COMPLETE`);
+      addLog(`${'='.repeat(50)}`);
+      
+      // Capture current logs for history before adding completion message
+      const operationLogs = [...deleteProgressLogs];
+      
+      // Save operation to history
+      const deletedItemsList = itemsInFolder.filter((_, idx) => idx < successCount).map(item => item.displayName);
+      const operation: WorkspaceOperation = {
+        id: operationId,
+        type: 'deleteFolder',
+        timestamp: new Date().toISOString(),
+        status: failCount > 0 ? 'failed' : 'completed',
+        errorMessage: failCount > 0 ? `${failCount} item(s) failed to delete` : undefined,
+        logs: operationLogs,
+        details: {
+          folderName: folderName,
+          folderId: selectedFolderId,
+          itemsDeleted: successCount,
+          itemsFailed: failCount,
+          deletedItems: deletedItemsList,
+          failedItems: failedItems
+        }
+      };
+      
+      updateItemDefinition({
+        operations: [...(editorItem.definition.operations || []), operation]
+      });
+      await SaveItem();
+      
+    } catch (error: any) {
+      addLog(`\n✗ Critical error: ${error?.message || error}`);
+      console.error("Failed to delete folder:", error);
+      
+      // Save failed operation to history
+      const operation: WorkspaceOperation = {
+        id: operationId,
+        type: 'deleteFolder',
+        timestamp: new Date().toISOString(),
+        status: 'failed',
+        errorMessage: error?.message || String(error),
+        logs: deleteProgressLogs,
+        details: {
+          folderName: folderName,
+          folderId: selectedFolderId
+        }
+      };
+      
+      updateItemDefinition({
+        operations: [...(editorItem.definition.operations || []), operation]
+      });
+      await SaveItem();
+      
+      callNotificationOpen(
+        workloadClient,
+        "Error Deleting Folder",
+        error?.message || "Failed to delete folder.",
+        undefined,
+        undefined
+      );
+    }
   }
 
   async function handleBulkDelete() {
@@ -1005,6 +1225,11 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
       setSelectedView(VIEW_TYPES.EMPTY);
     }
     setIsLoadingData(false);
+    
+    // Automatically refresh workspace items on load
+    if (item?.workspaceId) {
+      await refreshWorkspaceItems();
+    }
   }
 
   async function handleFinishEmpty(definition: WorkspaceManagerItemDefinition) {
@@ -1041,6 +1266,9 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
             bulkDeleteCallback={handleBulkDelete}
             rebindReportCallback={handleRebindReport}
             cloneSemanticModelCallback={handleCloneSemanticModel}
+            deleteFolderCallback={handleDeleteFolder}
+            hasFoldersAvailable={folders.length > 0}
+            folders={folders}
         />
         <Stack className="main">
           {selectedView === VIEW_TYPES.EMPTY && (
@@ -1122,46 +1350,64 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
                     {editorItem.definition.operations.slice(-5).reverse().map((operation) => (
                       <Card 
                         key={operation.id}
-                        style={{ cursor: operation.logs ? 'pointer' : 'default' }}
+                        style={{ 
+                          cursor: operation.logs ? 'pointer' : 'default',
+                          borderLeft: `4px solid ${operation.status === 'failed' ? 'var(--colorPaletteRedBorder1)' : operation.status === 'completed' ? 'var(--colorPaletteGreenBorder1)' : 'var(--colorPaletteYellowBorder1)'}`,
+                          transition: 'all 0.2s ease'
+                        }}
                         onClick={() => operation.logs && handleViewOperationLogs(operation)}
                       >
-                        <CardHeader
-                          header={
+                        <div style={{ padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <Badge 
                                 appearance="filled" 
-                                color={operation.status === 'failed' ? 'danger' : operation.type === 'delete' ? 'warning' : 'success'}
+                                color={operation.status === 'failed' ? 'danger' : (operation.type === 'delete' || operation.type === 'deleteFolder') ? 'warning' : 'success'}
                               >
-                                {operation.type.toUpperCase()}
+                                {operation.type === 'deleteFolder' ? 'DELETE FOLDER' : operation.type.toUpperCase()}
                               </Badge>
-                              <Text weight="semibold">
-                                {operation.sourceItems.length} item{operation.sourceItems.length !== 1 ? 's' : ''}
-                              </Text>
                               <Badge appearance="outline" color={operation.status === 'completed' ? 'success' : operation.status === 'failed' ? 'danger' : 'warning'}>
-                                {operation.status}
+                                {operation.status === 'completed' ? '✓ Completed' : operation.status === 'failed' ? '✗ Failed' : operation.status}
                               </Badge>
-                              <Text size={200} style={{ color: '#6b6b6b' }}>
-                                {new Date(operation.timestamp).toLocaleString()}
-                              </Text>
-                              {operation.logs && (
-                                <Text size={200} style={{ color: '#0078d4', marginLeft: 'auto' }}>
-                                  📋 View logs
-                                </Text>
-                              )}
                             </div>
-                          }
-                          description={
-                            operation.errorMessage ? (
-                              <Text size={200} style={{ color: '#d13438' }}>
-                                {operation.errorMessage}
+                            <Text size={200} style={{ color: '#6b6b6b' }}>
+                              {new Date(operation.timestamp).toLocaleString()}
+                            </Text>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <Text weight="semibold" size={300}>
+                              {operation.type === 'deleteFolder' 
+                                ? `Folder: ${operation.details?.folderName || 'Unknown'}` 
+                                : `${operation.sourceItems?.length || 0} item${operation.sourceItems?.length !== 1 ? 's' : ''}`
+                              }
+                            </Text>
+                          </div>
+                          {(operation.errorMessage || (operation.type === 'deleteFolder' && operation.details) || operation.clonedItemName) && (
+                            <div>
+                              {operation.errorMessage ? (
+                                <Text size={200} style={{ color: '#d13438' }}>
+                                  ✗ {operation.errorMessage}
+                                </Text>
+                              ) : operation.type === 'deleteFolder' && operation.details ? (
+                                <Text size={200} style={{ color: operation.details.itemsFailed > 0 ? '#d13438' : '#107c10' }}>
+                                  {operation.details.itemsDeleted > 0 && `✓ ${operation.details.itemsDeleted} item(s) deleted`}
+                                  {operation.details.itemsFailed > 0 && ` • ✗ ${operation.details.itemsFailed} failed`}
+                                </Text>
+                              ) : operation.clonedItemName ? (
+                                <Text size={200} style={{ color: '#107c10' }}>
+                                  ✓ Created: {operation.clonedItemName}
+                                </Text>
+                              ) : null}
+                            </div>
+                          )}
+                          {operation.logs && (
+                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--colorNeutralStroke2)' }}>
+                              <Text size={200} style={{ color: '#0078d4', fontWeight: 500 }}>
+                                📋 Click to view detailed logs
                               </Text>
-                            ) : operation.clonedItemName ? (
-                              <Text size={200} style={{ color: '#6b6b6b' }}>
-                                Created: {operation.clonedItemName}
-                              </Text>
-                            ) : undefined
-                          }
-                        />
+                            </div>
+                          )}
+                        </div>
                       </Card>
                     ))}
                   </div>
@@ -1199,6 +1445,79 @@ export function WorkspaceManagerItemEditor(props: PageProps) {
                 </Button>
                 <Button appearance="primary" onClick={confirmBulkDelete}>
                   Delete
+                </Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+
+        {/* Delete Folder Confirmation Dialog */}
+        <Dialog open={showDeleteFolderDialog} onOpenChange={(_, data) => setShowDeleteFolderDialog(data.open)}>
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>Confirm Delete Folder</DialogTitle>
+              <DialogContent>
+                <Text>
+                  Are you sure you want to delete the folder "{folders.find(f => f.id === selectedFolderId)?.displayName}" and all items within it? This action cannot be undone.
+                </Text>
+                {selectedFolderId && (
+                  <div style={{ marginTop: '12px', padding: '12px', backgroundColor: 'var(--colorPaletteRedBackground2)', borderRadius: '4px' }}>
+                    <Text weight="semibold" style={{ color: 'var(--colorPaletteRedForeground1)' }}>
+                      ⚠️ Warning: This will delete:
+                    </Text>
+                    <ul style={{ marginTop: '8px' }}>
+                      <li><Text>The folder itself</Text></li>
+                      <li><Text>All {workspaceItems.filter(item => {
+                        const folder = folders.find(f => f.id === selectedFolderId);
+                        return item.folderPath === folder?.displayName;
+                      }).length} items inside this folder</Text></li>
+                    </ul>
+                  </div>
+                )}
+              </DialogContent>
+              <DialogActions>
+                <Button appearance="secondary" onClick={() => setShowDeleteFolderDialog(false)}>
+                  Cancel
+                </Button>
+                <Button appearance="primary" onClick={confirmDeleteFolder}>
+                  Delete Folder
+                </Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+
+        {/* Delete Progress Dialog */}
+        <Dialog open={showDeleteProgressDialog} modalType="modal">
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>Deleting Folder Contents</DialogTitle>
+              <DialogContent>
+                <div style={{ marginBottom: '16px' }}>
+                  <Spinner size="small" label="Deleting items and folder..." />
+                </div>
+                <div style={{ 
+                  maxHeight: '400px', 
+                  overflowY: 'auto', 
+                  fontFamily: 'monospace', 
+                  fontSize: '12px',
+                  backgroundColor: 'var(--colorNeutralBackground2)',
+                  padding: '12px',
+                  borderRadius: '4px',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {deleteProgressLogs.map((log, index) => (
+                    <div key={index} style={{ marginBottom: '4px' }}>{log}</div>
+                  ))}
+                </div>
+              </DialogContent>
+              <DialogActions>
+                <Button 
+                  appearance="primary" 
+                  onClick={() => setShowDeleteProgressDialog(false)}
+                  disabled={deleteProgressLogs.length === 0 || !deleteProgressLogs.some(log => log.includes('OPERATION COMPLETE'))}
+                >
+                  Close
                 </Button>
               </DialogActions>
             </DialogBody>

@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Tab, TabList } from '@fluentui/react-tabs';
 import { Toolbar } from '@fluentui/react-toolbar';
 import {
-  ToolbarButton, Tooltip
+  ToolbarButton, Tooltip, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, Button, Dropdown, Option, Field
 } from '@fluentui/react-components';
 import {
   Save24Regular,
@@ -61,6 +61,25 @@ const WorkspaceManagerItemEditorRibbonHomeTabToolbar = (props: WorkspaceManagerI
       await props.cloneSemanticModelCallback();
     }
     return;
+  }
+
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
+  const [tempSelectedFolderId, setTempSelectedFolderId] = useState<string>('');
+
+  async function onDeleteFolderClicked() {
+    setTempSelectedFolderId('');
+    setShowFolderDialog(true);
+  }
+
+  async function handleConfirmDeleteFolder() {
+    if (!tempSelectedFolderId) return;
+    
+    setShowFolderDialog(false);
+    
+    // Pass the folder ID directly to the delete callback
+    if (props.deleteFolderCallback) {
+      await props.deleteFolderCallback(tempSelectedFolderId);
+    }
   }
 
   return (
@@ -124,6 +143,13 @@ const WorkspaceManagerItemEditorRibbonHomeTabToolbar = (props: WorkspaceManagerI
           onClick={onCloneSemanticModelClicked}
           disabled={!props.hasSelectedSemanticModel} />
       </Tooltip>
+      <Button
+        appearance="primary"
+        data-testid="workspace-manager-item-editor-delete-folder-btn"
+        onClick={onDeleteFolderClicked}
+        disabled={!props.hasFoldersAvailable}>
+        Delete Folder
+      </Button>
       <Tooltip
         content="Settings"
         relationship="label">
@@ -133,6 +159,33 @@ const WorkspaceManagerItemEditorRibbonHomeTabToolbar = (props: WorkspaceManagerI
           icon={<Settings24Regular />}
           onClick={onSettingsClicked} />
       </Tooltip>
+
+      <Dialog open={showFolderDialog} onOpenChange={(_, data) => setShowFolderDialog(data.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Delete Folder</DialogTitle>
+            <DialogContent>
+              <Field label="Select folder to delete" required>
+                <Dropdown
+                  placeholder="Select folder"
+                  value={props.folders?.find(f => f.id === tempSelectedFolderId)?.displayName || ''}
+                  onOptionSelect={(_, data) => setTempSelectedFolderId(data.optionValue as string)}
+                >
+                  {props.folders?.map(folder => (
+                    <Option key={folder.id} value={folder.id}>
+                      {folder.displayName}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setShowFolderDialog(false)}>Cancel</Button>
+              <Button appearance="primary" onClick={handleConfirmDeleteFolder} disabled={!tempSelectedFolderId}>Delete</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </Toolbar>
   );
 };
@@ -143,6 +196,8 @@ export interface WorkspaceManagerItemEditorRibbonProps extends PageProps {
   hasSelectedItems?: boolean;
   hasSelectedReport?: boolean;
   hasSelectedSemanticModel?: boolean;
+  hasFoldersAvailable?: boolean;
+  folders?: Array<{id: string, displayName: string}>;
   saveItemCallback: () => Promise<void>;
   openSettingsCallback: () => Promise<void>;
   refreshWorkspaceCallback?: () => Promise<void>;
@@ -150,6 +205,7 @@ export interface WorkspaceManagerItemEditorRibbonProps extends PageProps {
   bulkDeleteCallback?: () => Promise<void>;
   rebindReportCallback?: () => Promise<void>;
   cloneSemanticModelCallback?: () => Promise<void>;
+  deleteFolderCallback?: (folderId?: string) => Promise<void>;
 }
 
 export function WorkspaceManagerItemEditorRibbon(props: WorkspaceManagerItemEditorRibbonProps) {

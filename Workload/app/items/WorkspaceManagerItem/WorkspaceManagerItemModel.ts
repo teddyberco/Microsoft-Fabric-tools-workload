@@ -17,8 +17,8 @@ export interface WorkspaceItem {
 
 export interface WorkspaceOperation {
   id: string;
-  type: 'copy' | 'delete' | 'move' | 'rebind' | 'clone';
-  sourceItems: string[];
+  type: 'copy' | 'delete' | 'move' | 'rebind' | 'clone' | 'deleteFolder';
+  sourceItems?: string[];
   targetWorkspace?: string;
   targetDatasetId?: string; // For rebind operations
   clonedItemId?: string; // For clone operations - the new item ID
@@ -31,6 +31,7 @@ export interface WorkspaceOperation {
   userName?: string; // User who initiated the operation
   errorMessage?: string;
   logs?: string[]; // Operation logs for debugging and history
+  details?: any; // Additional operation-specific details
 }
 
 export const VIEW_TYPES = {
